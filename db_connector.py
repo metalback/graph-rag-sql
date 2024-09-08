@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import pandas as pd
+import json
 
 class DatabaseConnector:
   def __init__(self):
@@ -33,10 +34,17 @@ class DatabaseConnector:
               cache_file = os.path.join(self.cache_dir, f"{db_name}_{table_name}.json")
               
               if not os.path.exists(cache_file):
-                  # Cache the first 200 rows
-                  df = pd.read_sql_query(f"SELECT * FROM {table_name} LIMIT 200", conn)
-                  df.to_json(cache_file, index=False)
-                  print(f"Cached {cache_file}")
+                # Cache the first rows
+                df = pd.read_sql_query(f"SELECT * FROM {table_name} LIMIT 300", conn)
+                # Create a frequencies dict
+                freq_dict = dict()
+                for col in df.columns:
+                    common_values=df[col].value_counts().keys().tolist()[:min(15, len(df[col].value_counts()))]
+                    freq_dict[col] = common_values
+                # Save data to a JSON file
+                with open(cache_file, 'w') as f:
+                    json.dump(freq_dict, f, indent=2)         
+                print(f"Cached {cache_file}")
           
           conn.close()
 
