@@ -75,15 +75,19 @@ class GraphRAG:
           return
 
       # Build the knowledge graph based on similarities
-      similarity_threshold = 0.3  # Adjust this threshold as needed
+      similarity_threshold = 0.3
       for i, doc1 in enumerate(documents):
           node1 = f"{doc1.metadata['db']}.{doc1.metadata['table']}"
           self.graph.add_node(node1, columns=doc1.metadata['columns'])
           for j, doc2 in enumerate(documents[i+1:], start=i+1):
-              node2 = f"{doc2.metadata['db']}.{doc2.metadata['table']}"
-              similarity = self.vector_store.similarity_search_with_score(doc1.page_content, k=1)[0][1]
-              if similarity >= similarity_threshold:
-                  self.graph.add_edge(node1, node2, weight=similarity)
+            node2 = f"{doc2.metadata['db']}.{doc2.metadata['table']}"
+            similarities = self.vector_store.similarity_search_with_score(doc1.page_content, k=10) # get the top similar documents
+            # Iterate over similarities to find the one with the name of the second document
+            similarity = next((sim for sim in similarities if sim[0].metadata['table'] == doc2.metadata['table'] and sim[0].metadata['db'] == doc2.metadata['db']), None)
+            if similarity:
+                similarity_score = float(similarity[1])
+                if similarity_score >= similarity_threshold:
+                    self.graph.add_edge(node1, node2, weight=similarity_score)
 
       # Save vector store and graph
       try:
@@ -107,18 +111,22 @@ class GraphRAG:
           return "Error: Vector store not initialized."
 
       # Perform similarity search
-      relevant_docs = self.vector_store.similarity_search(query, k=3)
+      relevant_docs = self.vector_store.similarity_search(query, k=5)
       
       context = "Database structure:\n"
+      nodes_added_to_context=set()
+      related_to_add=set()
       for doc in relevant_docs:
           db_name = doc.metadata['db']
           table_name = doc.metadata['table']
           node = f"{db_name}.{table_name}"
+          # add node to set nodes_added_to_context
+          nodes_added_to_context.add(node)
           
           # Add information about the table
           context += f"- Table: {node}\n"
           context += f"  Columns: {', '.join(doc.metadata['columns'])}\n"
-          context += f"  Sample data: {doc.page_content}\n"
+          context += f"  Common values: {doc.page_content}\n"
           
           # Add information about related tables (connected nodes)
           related_tables = list(self.graph.neighbors(node))
@@ -128,9 +136,21 @@ class GraphRAG:
               # Include information from connected nodes
               for related_table in related_tables:
                   related_columns = self.graph.nodes[related_table]['columns']
-                  context += f"    - {related_table} columns: {', '.join(related_columns)}\n"
-                  context += f"    - {related_table} Sample data: {doc.page_content}\n"
+                  related_to_add.add(related_table)
           
           context += "\n"
-      
+      # Traverse the graph to add related tables
+      for related_table in related_to_add:
+        if related_table not in nodes_added_to_context:
+            # get the doc of the related table            
+            context += f"- Table: {related_table}\n"
+            context += f"  Columns: {', '.join(self.graph.nodes[related_table]['columns'])}\n"
+            context += f"  Common values: {self.vector_store.get_document_by_metadata('db', related_table.split('.')[0], 'table', related_table.split('.')[1]).page_content}\n"
+            related_tables = list(self.graph.neighbors(node))
+            context += f"  Related tables: {', '.join(related_tables)}\n\n"
+            nodes_added_to_context.add(related_table)
+            related_to_add.remove(related_table)
+            for table in related_tables:
+                if table not in nodes_added_to_context:
+                    related_to_add.add(table)
       return context
