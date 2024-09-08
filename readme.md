@@ -9,8 +9,9 @@ Given access to a database and a prompt, it returns a valid SQL query based on t
 Large EHR databases often have hundreds and thousands of tables and lack comprehensive documentation, since the schema is often proprietary and implemented slightly differently in different organizations, making it challenging for users to write complex SQL queries. This tool bridges that gap by automatically exploring the database structure and generating SQL code based on natural language prompts.
 
 <p align="center">
-   <img width="853" alt="graphRAG" src="https://github.com/user-attachments/assets/089b2c5e-4f43-4d8f-a471-e5960dea8620">
+<img width="825" alt="graphRAG" src="https://github.com/user-attachments/assets/7b48af46-01cc-47f5-b4a0-b6fec3387055">
 </p>
+
 
 ## Components
 
