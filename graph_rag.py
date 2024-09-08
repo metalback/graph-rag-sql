@@ -96,7 +96,7 @@ class GraphRAG:
   def load_graph(self):
       try:
           embeddings = GoogleGenerativeAIEmbeddings(google_api_key=os.environ['GOOGLE_AI_KEY'], model="models/embedding-001")
-          self.vector_store = FAISS.load_local(self.vector_store_path, embeddings)
+          self.vector_store = FAISS.load_local(self.vector_store_path, embeddings, allow_dangerous_deserialization=True)
           self.graph = nx.read_gml(self.graph_path)
           print("Vector store and graph loaded successfully")
       except Exception as e:

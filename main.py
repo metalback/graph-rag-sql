@@ -40,7 +40,7 @@ def index():
       chain = LLMChain(llm=llm, prompt=prompt_template)
       sql_result = chain.run(context=context, user_prompt=user_prompt)
       
-      return render_template('user_interface.html', result=sql_result)
+      return render_template('user_interface.html', result=context)
   
   return render_template('user_interface.html')
 
