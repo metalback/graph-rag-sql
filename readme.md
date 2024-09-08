@@ -1,4 +1,4 @@
-# No schema? no data dictionary? no problem!
+# No schema? No data dictionary? No problem!
 
 This is a generalizable graph-RAG LLM tool originally developed for EHR (electronic health records) where often there is no reliable documentation, but can be used for any large/messy/poorly documented database and not limited to healthcare data. 
 
