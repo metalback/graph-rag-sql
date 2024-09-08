@@ -1,0 +1,8 @@
+Flask==3.0.3
+langchain==0.2.16
+google-cloud-aiplatform==1.65.0
+langchain-google-genai==1.0.10
+faiss-cpu==1.8.0.post1
+networkx==3.3
+pandas==2.2.2
+langchain-community==0.2.16

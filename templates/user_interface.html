@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Code Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>SQL Code Generator</h1>
+    <form method="POST">
+        <label for="prompt">Enter your prompt:</label><br>
+        <textarea id="prompt" name="prompt" required></textarea><br><br>
+        <input type="submit" value="Generate SQL">
+    </form>
+    
+    {% if result %}
+    <h2>Generated SQL:</h2>
+    <pre><code>{{ result }}</code></pre>
+    {% endif %}
+</body>
+</html>
