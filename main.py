@@ -35,7 +35,7 @@ def index():
       llm = llm_connector.get_llm()
       prompt_template = PromptTemplate(
           input_variables=["context", "user_prompt"],
-          template="Given the following database context:\n{context}\n\nGenerate SQL for the following request:\n{user_prompt}"
+          template="Given the following database context and incomplete sample values:\n{context}\n\nGenerate SQL for the following request:\n{user_prompt}\n\n If values do not exist in the sample data, assume that they may exist in the full database."
       )
       chain = LLMChain(llm=llm, prompt=prompt_template)
       sql_result = chain.run(context=context, user_prompt=user_prompt)
