@@ -78,7 +78,7 @@ class GraphRAG:
       similarity_threshold = 0.3
       for i, doc1 in enumerate(documents):
           node1 = f"{doc1.metadata['db']}.{doc1.metadata['table']}"
-          self.graph.add_node(node1, columns=doc1.metadata['columns'])
+          self.graph.add_node(node1, columns=doc1.metadata['columns'], frequent_values=doc1.page_content)
           for j, doc2 in enumerate(documents[i+1:], start=i+1):
             node2 = f"{doc2.metadata['db']}.{doc2.metadata['table']}"
             similarities = self.vector_store.similarity_search_with_score(doc1.page_content, k=10) # get the top similar documents
@@ -145,7 +145,7 @@ class GraphRAG:
             # get the doc of the related table            
             context += f"- Table: {related_table}\n"
             context += f"  Columns: {', '.join(self.graph.nodes[related_table]['columns'])}\n"
-            context += f"  Common values: {self.vector_store.get_document_by_metadata('db', related_table.split('.')[0], 'table', related_table.split('.')[1]).page_content}\n"
+            context += f"  Common values: {self.graph.nodes[related_table]['frequent_values']}\n"
             related_tables = list(self.graph.neighbors(node))
             context += f"  Related tables: {', '.join(related_tables)}\n\n"
             nodes_added_to_context.add(related_table)
