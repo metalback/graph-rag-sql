@@ -163,4 +163,5 @@ class GraphRAG:
               if table not in nodes_added_to_context:
                   related_to_add.add(table)
 
-      return context
+
+        return context
