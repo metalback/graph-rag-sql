@@ -7,6 +7,12 @@ services:
     environment:
       GOOGLE_AI_KEY: ${GOOGLE_AI_KEY}
       FLASK_DEBUG: 1
+      DB_HOST: ${DB_HOST}
+      DB_IP: ${DB_IP}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
     volumes:
       - ./app:/app/app
 

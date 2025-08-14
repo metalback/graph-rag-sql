@@ -1,88 +1,58 @@
-import sqlite3
 import os
-import pandas as pd
 import json
+import pandas as pd
+import pyodbc
+
 
 class DatabaseConnector:
-  def __init__(self):
-      self.databases = {
-          'patients': 'cache/patients.db',
-          'encounters': 'cache/encounters.db',
-          'labwork': 'cache/labwork.db'
-      }
-      self.cache_dir = 'cache'
-      # Create cache directory if it doesn't exist
-      if not os.path.exists(self.cache_dir):
-        os.makedirs(self.cache_dir)
-        # Create sample databases
-        self.create_sample_databases()
-      
-  def connect_and_cache(self):
-      """
-      Connect to all databases, check if they're cached, and cache if necessary.
-      """
-      for db_name, db_file in self.databases.items():
-          conn = sqlite3.connect(db_file)
-          cursor = conn.cursor()
-          
-          # Get all tables in the database
-          cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-          tables = cursor.fetchall()
-          
-          for table in tables:
-              table_name = table[0]
-              cache_file = os.path.join(self.cache_dir, f"{db_name}_{table_name}.json")
-              
-              if not os.path.exists(cache_file):
-                # Cache the first rows
-                df = pd.read_sql_query(f"SELECT * FROM {table_name} LIMIT 300", conn)
-                # Create a frequencies dict
-                freq_dict = dict()
-                for col in df.columns:
-                    common_values=df[col].value_counts().keys().tolist()[:min(15, len(df[col].value_counts()))]
-                    freq_dict[col] = common_values
-                # Save data to a JSON file
-                with open(cache_file, 'w') as f:
-                    json.dump(freq_dict, f, indent=2)         
-                print(f"Cached {cache_file}")
-          
-          conn.close()
+    """Connects to a SQL Server database and caches sample data."""
 
-  def create_sample_databases(self):
-      """
-      Create sample SQLite databases with synthetic data for demonstration purposes.
-      """
-      # patients database
-      conn_patients = sqlite3.connect('cache/patients.db')
-      c_patients = conn_patients.cursor()
-      c_patients.execute('''CREATE TABLE IF NOT EXISTS patients
-                   (id INTEGER PRIMARY KEY, name TEXT, mrn TEXT)''')
-      for i in range(1000):
-          c_patients.execute("INSERT INTO patients VALUES (?, ?, ?)",
-                              (i, f"patient {i}", f"MRN000{i}"))
-      conn_patients.commit()
-      conn_patients.close()
+    def __init__(
+        self,
+        host: str | None = None,
+        ip: str | None = None,
+        port: int | str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        database: str | None = None,
+    ) -> None:
+        self.host = host or os.environ.get("DB_HOST")
+        self.ip = ip or os.environ.get("DB_IP")
+        self.port = str(port or os.environ.get("DB_PORT", 1433))
+        self.user = user or os.environ.get("DB_USER")
+        self.password = password or os.environ.get("DB_PASSWORD")
+        self.database = database or os.environ.get("DB_NAME")
+        self.cache_dir = "cache"
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
 
-      # encounters database
-      conn_encounters = sqlite3.connect('cache/encounters.db')
-      c_encounters = conn_encounters.cursor()
-      c_encounters.execute('''CREATE TABLE IF NOT EXISTS encounters
-                   (id INTEGER PRIMARY KEY, patient_id INTEGER, clinic_id INTEGER, time INTEGER)''')
-      for i in range(5000):
-          c_encounters.execute("INSERT INTO encounters VALUES (?, ?, ?, ?)",
-                           (i, i, i % 100, (i % 10) + 1))
-      conn_encounters.commit()
-      conn_encounters.close()
+    def _connection_string(self) -> str:
+        server = self.host or self.ip or ""
+        return (
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            f"SERVER={server},{self.port};"
+            f"DATABASE={self.database};"
+            f"UID={self.user};PWD={self.password};"
+            "TrustServerCertificate=yes;"
+        )
 
-      # labwork database
-      conn_labwork = sqlite3.connect('cache/labwork.db')
-      c_labwork = conn_labwork.cursor()
-      c_labwork.execute('''CREATE TABLE IF NOT EXISTS labwork
-                   (id INTEGER PRIMARY KEY, mrn TEXT, result REAL)''')
-      for i in range(100):
-          c_labwork.execute("INSERT INTO labwork VALUES (?, ?, ?)",
-                             (i, f"MRN000{i}", (i % 100) + 0.99))
-      conn_labwork.commit()
-      conn_labwork.close()
-
-      print("Sample databases created successfully.")
+    def connect_and_cache(self) -> None:
+        """Connect to the database and cache sample values for each table."""
+        conn = pyodbc.connect(self._connection_string())
+        cursor = conn.cursor()
+        tables = [row.table_name for row in cursor.tables(tableType="TABLE")]
+        for table_name in tables:
+            cache_file = os.path.join(self.cache_dir, f"{table_name}.json")
+            if os.path.exists(cache_file):
+                continue
+            df = pd.read_sql_query(f"SELECT TOP 300 * FROM {table_name}", conn)
+            freq_dict: dict[str, list] = {}
+            for col in df.columns:
+                common_values = (
+                    df[col].value_counts().keys().tolist()[: min(15, len(df[col].value_counts()))]
+                )
+                freq_dict[col] = common_values
+            with open(cache_file, "w") as f:
+                json.dump(freq_dict, f, indent=2)
+            print(f"Cached {cache_file}")
+        conn.close()
