@@ -145,17 +145,22 @@ class GraphRAG:
           
           context += "\n"
       # Traverse the graph to add related tables
-      for related_table in related_to_add:
-        if related_table not in nodes_added_to_context:
-            # get the doc of the related table            
-            context += f"- Table: {related_table}\n"
-            context += f"  Columns: {', '.join(self.graph.nodes[related_table]['columns'])}\n"
-            context += f"  Common values: {self.graph.nodes[related_table]['frequent_values']}\n"
-            related_tables = list(self.graph.neighbors(node))
-            context += f"  Related tables: {', '.join(related_tables)}\n\n"
-            nodes_added_to_context.add(related_table)
-            related_to_add.remove(related_table)
-            for table in related_tables:
-                if table not in nodes_added_to_context:
-                    related_to_add.add(table)
-      return context
+      while related_to_add:
+          related_table = related_to_add.pop()
+          if related_table in nodes_added_to_context:
+              continue
+
+          context += f"- Table: {related_table}\n"
+          context += f"  Columns: {', '.join(self.graph.nodes[related_table]['columns'])}\n"
+          context += f"  Common values: {self.graph.nodes[related_table]['frequent_values']}\n"
+
+          related_tables = list(self.graph.neighbors(related_table))
+          context += f"  Related tables: {', '.join(related_tables)}\n\n"
+
+          nodes_added_to_context.add(related_table)
+
+          for table in related_tables:
+              if table not in nodes_added_to_context:
+                  related_to_add.add(table)
+
+        return context
