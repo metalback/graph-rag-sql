@@ -3,9 +3,9 @@ from flask import Flask, render_template, request
 from langchain_google_genai import GoogleGenerativeAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from db_connector import DatabaseConnector
-from llm_api_connector import LLMConnector
-from graph_rag import GraphRAG
+from .db_connector import DatabaseConnector
+from .llm_api_connector import LLMConnector
+from .graph_rag import GraphRAG
 
 app = Flask(__name__, template_folder='templates')
 
@@ -44,8 +44,7 @@ def index():
   
   return render_template('user_interface.html')
 
-if __name__ == '__main__':
-  app.run(debug=True)
+if __name__ == "__main__":
+  debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+  app.run(host="0.0.0.0", debug=debug)
 
-# Created/Modified files during execution:
-print("No files were created or modified during the execution of main.py")
