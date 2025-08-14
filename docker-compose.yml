@@ -6,3 +6,7 @@ services:
       - "5000:5000"
     environment:
       GOOGLE_AI_KEY: ${GOOGLE_AI_KEY}
+      FLASK_DEBUG: 1
+    volumes:
+      - ./app:/app/app
+
