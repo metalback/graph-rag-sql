@@ -1,0 +1,7 @@
+# Ignore database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Ignore cache directory
+cache/
