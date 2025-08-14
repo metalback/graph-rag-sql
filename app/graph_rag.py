@@ -32,9 +32,14 @@ class GraphRAG:
       for file in os.listdir(self.cache_dir):
           if file.endswith('.json'):
               print(f"Processing file: {file}")
-              db_name, table_name = file.split('_')
-              table_name = table_name.split('.')[0]
-              
+              # New cache file format: schema.table.json
+              try:
+                  base = file[:-5]  # remove .json
+                  db_name, table_name = base.split('.', 1)
+              except ValueError:
+                  print(f"Skipping file with unexpected name format: {file}")
+                  continue
+
               file_path = os.path.join(self.cache_dir, file)
               try:
                   with open(file_path, 'r') as f:
@@ -44,7 +49,7 @@ class GraphRAG:
                           column_names = list(content.keys()) if content else []
                           # Convert content back to string for vector store
                           content_str = json.dumps(content)
-                          
+
                           documents.append(Document(
                               page_content=content_str,
                               metadata={

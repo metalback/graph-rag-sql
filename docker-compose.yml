@@ -15,4 +15,5 @@ services:
       DB_NAME: ${DB_NAME}
     volumes:
       - ./app:/app/app
+      - ./cache:/app/cache
 
