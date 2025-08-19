@@ -1,19 +1,21 @@
-import os
-from langchain_google_genai import GoogleGenerativeAI
+"""
+Compatibility shim for legacy imports.
 
-class LLMConnector:
-    def __init__(self):
-        # Ensure the environment variable is set
-        if 'GOOGLE_AI_KEY' not in os.environ:
-            raise ValueError("GOOGLE_AI_KEY environment variable is not set")
-    
-    def get_llm(self):
-        return GoogleGenerativeAI(
-            google_api_key=os.environ['GOOGLE_AI_KEY'],
-            model="gemini-1.5-pro",
-            max_output_tokens=1024,
-            temperature=0.2,
-            top_p=0.8,
-            top_k=40
-            )
+This module re-exports the Clean Architecture components from app.llm.*
+Prefer importing from app.llm going forward:
+    from .llm import LLMConnectorFactory, BaseLLMConnector
+"""
+
+from .llm.domain.interfaces import BaseLLMConnector
+from .llm.application.factory import LLMConnectorFactory
+from .llm.infrastructure.google_connector import GoogleLLMConnector as LLMConnector  # backward-compat alias
+from .llm.infrastructure.google_connector import GoogleLLMConnector
+try:
+    from .llm.infrastructure.openai_connector import OpenAILLMConnector  # type: ignore
+except Exception:  # pragma: no cover
+    OpenAILLMConnector = None  # type: ignore
+try:
+    from .llm.infrastructure.anthropic_connector import AnthropicLLMConnector  # type: ignore
+except Exception:  # pragma: no cover
+    AnthropicLLMConnector = None  # type: ignore
 

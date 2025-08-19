@@ -7,3 +7,11 @@ networkx==3.3
 pandas==2.2.2
 langchain-community==0.2.16
 pyodbc==5.1.0
+
+# Env management and CORS
+python-dotenv==1.0.1
+Flask-Cors==4.0.1
+
+# Optional provider packages (used if selected via LLM_PROVIDER)
+langchain-openai==0.1.22
+langchain-anthropic==0.1.19
