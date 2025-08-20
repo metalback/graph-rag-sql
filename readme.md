@@ -15,11 +15,14 @@ Large EHR databases often have hundreds and thousands of tables and lack compreh
 
 ## Components
 
-1. `main.py`: The main application file that integrates all components and handles user requests.
-2. `db_connector.py`: Manages database connections and caching. Example given with sqlite3, set up your Spark/Hadoop/etc. connector here. 
-3. `llm_api_connector.py`: Handles the connection to an LLM API. The example uses Google Generative AI studio due to their free API. If used in a healthcare setting, you need to use a PHI API approved by your institution. 
-4. `graph_rag.py`: Implements the Graph RAG system using FAISS for vector storage and NetworkX for graph representation.
-5. `user_interface.html`: Provides a simple interface for users to input prompts and view results while experimenting with the logic.
+1. `app/main.py`: Flask app that integrates LLM, GraphRAG, and database execution (run_sql).
+2. `app/db_connector.py`: Legacy cache builder for sample values. Database-specific connectors live under `app/database/`.
+3. `app/database/mssql/connector.py`: MSSQL connector using SQLAlchemy/pyodbc. Provides `run_sql(sql) -> pd.DataFrame`.
+4. `app/graph/graph_rag.py`: Graph RAG implementation and context retrieval.
+5. `app/llm/`: Modular LLM interface and providers:
+    - `app/llm/base.py`: BaseLLM interface
+    - `app/llm/gemini`, `app/llm/openai`, `app/llm/anthropic`: Provider implementations
+6. `templates/user_interface.html`: Simple UI to input prompts and view generated SQL and results preview.
 
 ## How It Works
 
