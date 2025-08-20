@@ -5,8 +5,24 @@ services:
     ports:
       - "5000:5000"
     environment:
-      GOOGLE_AI_KEY: ${GOOGLE_AI_KEY}
+      # App
+      FLASK_ENV: ${FLASK_ENV}
+      APP_HOST: ${APP_HOST}
+      APP_PORT: ${APP_PORT}
+      CORS_ORIGINS: ${CORS_ORIGINS}
       FLASK_DEBUG: 1
+      
+      # LLM
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      GOOGLE_AI_KEY: ${GOOGLE_AI_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # DB selection and MSSQL connection
+      DB_PROVIDER: ${DB_PROVIDER}
+      MSSQL_ODBC_CONN_STR: ${MSSQL_ODBC_CONN_STR}
+
+      # Legacy/optional MSSQL params (used by previous cache logic; kept for compatibility)
       DB_HOST: ${DB_HOST}
       DB_IP: ${DB_IP}
       DB_PORT: ${DB_PORT}
@@ -16,4 +32,3 @@ services:
     volumes:
       - ./app:/app/app
       - ./cache:/app/cache
-
