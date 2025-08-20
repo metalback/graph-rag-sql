@@ -1,13 +1,23 @@
 # Clean Architecture package for LLM connectors
-# Expose convenient imports
-from .domain.interfaces import BaseLLMConnector
-from .application.factory import LLMConnectorFactory
-from .infrastructure.google_connector import GoogleLLMConnector
+"""
+Convenience exports for the new modular LLM interface.
+
+Use BaseLLM with provider implementations in subpackages:
+  - app.llm.gemini.GeminiLLM
+  - app.llm.openai.OpenAILLM
+  - app.llm.anthropic.AnthropicLLM
+"""
+
+from .base import BaseLLM  # noqa: F401
 try:
-    from .infrastructure.openai_connector import OpenAILLMConnector
+    from .gemini import GeminiLLM  # noqa: F401
 except Exception:
-    OpenAILLMConnector = None  # optional
+    GeminiLLM = None  # optional
 try:
-    from .infrastructure.anthropic_connector import AnthropicLLMConnector
+    from .openai import OpenAILLM  # noqa: F401
 except Exception:
-    AnthropicLLMConnector = None  # optional
+    OpenAILLM = None  # optional
+try:
+    from .anthropic import AnthropicLLM  # noqa: F401
+except Exception:
+    AnthropicLLM = None  # optional
