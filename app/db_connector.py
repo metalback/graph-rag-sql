@@ -62,7 +62,7 @@ class DatabaseConnector:
         # Excluir esquemas con objetos del sistema o metadatos
         excluded_schemas = {"sys", "INFORMATION_SCHEMA"}
         # Incluir solo esquemas permitidos para el caso de prueba
-        allowed_schemas = {"fiscalia_solicitud"}
+        allowed_schemas = {"bdi","tesoreria_afc","tesoreria_conciliacion_bancaria","tesoreria_fondo_unico"}
         # Filtra por seguridad de nombre y por listas de inclusión/exclusión
         tables = [
             (s, t)
