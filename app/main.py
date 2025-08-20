@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-from .db_connector import DatabaseConnector
+from .database import get_database_connector
 from .graph import GraphRAG
 from .config import settings
 from .llm.gemini import GeminiLLM
@@ -14,10 +14,6 @@ try:
   from .llm.anthropic import AnthropicLLM  # type: ignore
 except Exception:  # pragma: no cover
   AnthropicLLM = None  # type: ignore
-try:
-  from .database.mssql.connector import MssqlConnector  # type: ignore
-except Exception:  # pragma: no cover
-  MssqlConnector = None  # type: ignore
 
 app = Flask(__name__, template_folder='templates')
 # Enable CORS based on settings (allow all if not specified)
@@ -27,9 +23,11 @@ else:
   CORS(app)
 
 # Initialize components
-db_connector = DatabaseConnector()
+db_connector = get_database_connector()  # selects provider via env (DB_PROVIDER), connects immediately
 graph_rag = GraphRAG()
 
+# Database run_sql bound from the selected connector
+run_sql = db_connector.run_sql  # type: ignore
 
 def _create_llm():
   provider = (settings.LLM_PROVIDER or os.environ.get('LLM_PROVIDER', 'google')).lower()
@@ -45,40 +43,7 @@ def _create_llm():
     return AnthropicLLM()  # type: ignore
   raise ValueError(f"Proveedor LLM no soportado: {provider}")
 
-
 llm = _create_llm()
-
-
-# -----------------------------
-# Database run_sql abstraction
-# -----------------------------
-def run_sql(sql: str, **kwargs) -> pd.DataFrame:
-  """
-  Run a SQL query on the connected database.
-
-  Example:
-    run_sql("SELECT 1 AS x")
-
-  Returns:
-    pd.DataFrame: Query results
-  """
-  raise Exception(
-    "You need to connect to a database first by configuring MSSQL_ODBC_CONN_STR or wiring a connector; or manually set run_sql"
-  )
-
-
-# Attempt MSSQL autoconnect if env var provided
-def _maybe_connect_mssql():
-  odbc_str = os.environ.get("MSSQL_ODBC_CONN_STR")
-  if not odbc_str or MssqlConnector is None:
-    return
-  mssql = MssqlConnector()
-  mssql.connect_to_mssql(odbc_str)
-  # bind the module-level run_sql to connector's implementation
-  globals()['run_sql'] = mssql.run_sql  # type: ignore
-
-
-_maybe_connect_mssql()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -89,7 +54,8 @@ def index():
       user_prompt = request.form['prompt']
       
       # Connect to the database and update cache if necessary
-      db_connector.connect_and_cache()
+      if hasattr(db_connector, 'connect_and_cache'):
+        db_connector.connect_and_cache()
       
       # Build or load the graph RAG system
       graph_rag.build_or_load_graph()
@@ -133,7 +99,8 @@ def api_build_graph():
   """
   try:
     # Ensure DB cache is up-to-date
-    db_connector.connect_and_cache()
+    if hasattr(db_connector, 'connect_and_cache'):
+      db_connector.connect_and_cache()
 
     # Build or load the graph
     graph_rag.build_or_load_graph()
