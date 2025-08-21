@@ -20,10 +20,9 @@ def get_database_connector(provider: Optional[str] = None):
     if provider == "mssql":
         if MSSQLConnector is None:
             raise RuntimeError("MSSQL connector not available. Ensure dependencies (pyodbc, sqlalchemy) are installed.")
-        # Prefer a full ODBC connection string if provided
-        odbc_conn_str = os.getenv("MSSQL_ODBC_CONN_STR")
+        # Build connection from DB_* environment variables inside the connector
         connector = MSSQLConnector()
-        connector.connect_to_mssql(odbc_conn_str=odbc_conn_str)
+        connector.connect_to_mssql()
         return connector
 
     raise ValueError(f"Unsupported DB provider: {provider}")

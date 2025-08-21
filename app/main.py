@@ -1,5 +1,10 @@
 import os
-from flask import Flask, render_template, request, jsonify
+import io
+import networkx as nx
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from flask import Flask, render_template, request, jsonify, send_file
 from flask_cors import CORS
 from .database import get_database_connector
 from .graph import GraphRAG
@@ -106,6 +111,75 @@ def api_build_graph():
     graph_rag.build_or_load_graph()
 
     return jsonify({"status": "ok", "message": "Graph built/loaded successfully"}), 200
+  except Exception as e:
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/graph/image', methods=['GET'])
+def api_graph_image():
+  """
+  Render the current knowledge graph as a PNG image.
+  """
+  try:
+    # Ensure graph is available
+    graph_rag.build_or_load_graph()
+    G = graph_rag.graph
+    if G is None or G.number_of_nodes() == 0:
+      return jsonify({"status": "error", "message": "Graph is empty or not built"}), 400
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    pos = nx.spring_layout(G, seed=42)
+    nx.draw(G, pos, with_labels=True, node_size=1, font_size=10, ax=ax)
+    fig.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    return send_file(buf, mimetype='image/png')
+  except Exception as e:
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/graph/delete-cache', methods=['POST'])
+def api_graph_delete_cache():
+  try:
+    deleted = graph_rag.delete_cache()
+    return jsonify({"status": "ok", "deleted": deleted}), 200
+  except Exception as e:
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/graph/delete-db', methods=['POST'])
+def api_graph_delete_db():
+  try:
+    deleted = graph_rag.delete_graph_db()
+    return jsonify({"status": "ok", "deleted": deleted}), 200
+  except Exception as e:
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/graph/update-db', methods=['POST'])
+def api_graph_update_db():
+  try:
+    graph_rag.update_graph_db()
+    return jsonify({"status": "ok", "message": "Graph DB rebuilt"}), 200
+  except Exception as e:
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/graph/update-cache', methods=['POST'])
+def api_graph_update_cache():
+  try:
+    import os
+    before = 0
+    try:
+      before = len([f for f in os.listdir(graph_rag.cache_dir) if f.endswith('.json')])
+    except Exception:
+      pass
+    graph_rag.update_graph_cache(db_connector)
+    after = before
+    try:
+      after = len([f for f in os.listdir(graph_rag.cache_dir) if f.endswith('.json')])
+    except Exception:
+      pass
+    return jsonify({"status": "ok", "message": "Cache refreshed", "cache_json_before": before, "cache_json_after": after, "created_or_existing": max(0, after)}), 200
   except Exception as e:
     return jsonify({"status": "error", "message": str(e)}), 500
 

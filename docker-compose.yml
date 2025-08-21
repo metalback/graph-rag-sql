@@ -20,8 +20,7 @@ services:
 
       # DB selection and MSSQL connection
       DB_PROVIDER: ${DB_PROVIDER}
-      MSSQL_ODBC_CONN_STR: ${MSSQL_ODBC_CONN_STR}
-
+      
       # Legacy/optional MSSQL params (used by previous cache logic; kept for compatibility)
       DB_HOST: ${DB_HOST}
       DB_IP: ${DB_IP}
@@ -29,6 +28,15 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      DB_DRIVER: ${DB_DRIVER}
+
+      # Graph/Cache configuration
+      GRAPH_CACHE_DIR: ${GRAPH_CACHE_DIR}
+      GRAPH_ALLOWED_SCHEMAS: ${GRAPH_ALLOWED_SCHEMAS}
+      GRAPH_INCLUDE_TABLES: ${GRAPH_INCLUDE_TABLES}
+      GRAPH_EXCLUDE_TABLES: ${GRAPH_EXCLUDE_TABLES}
+      GRAPH_SAMPLE_ROWS: ${GRAPH_SAMPLE_ROWS}
+      GRAPH_MAX_COMMON_VALUES: ${GRAPH_MAX_COMMON_VALUES}
     volumes:
       - ./app:/app/app
       - ./cache:/app/cache

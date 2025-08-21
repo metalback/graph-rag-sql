@@ -4,15 +4,16 @@ import networkx as nx
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.schema import Document
+from ..config import settings
 
 
 class GraphRAG:
     def __init__(self):
         self.vector_store = None
         self.graph = None
-        self.cache_dir = 'cache'
-        self.vector_store_path = 'cache/vector_store.faiss'
-        self.graph_path = 'cache/graph.gml'
+        self.cache_dir = settings.GRAPH_CACHE_DIR
+        self.vector_store_path = os.path.join(self.cache_dir, 'vector_store.faiss')
+        self.graph_path = os.path.join(self.cache_dir, 'graph.gml')
 
     def build_or_load_graph(self):
         if os.path.exists(self.vector_store_path) and os.path.exists(self.graph_path):
@@ -102,6 +103,49 @@ class GraphRAG:
             print("Vector store and graph saved successfully")
         except Exception as e:
             print(f"Error saving vector store or graph: {str(e)}")
+
+    def delete_cache(self) -> int:
+        """Delete JSON cache files in the configured cache directory. Returns count deleted."""
+        count = 0
+        if not os.path.exists(self.cache_dir):
+            return 0
+        for name in os.listdir(self.cache_dir):
+            if name.endswith('.json'):
+                try:
+                    os.remove(os.path.join(self.cache_dir, name))
+                    count += 1
+                except Exception as e:
+                    print(f"WARN: No se pudo eliminar {name}: {e}")
+        return count
+
+    def delete_graph_db(self) -> int:
+        """Delete vector store (file or directory) and graph file. Returns count deleted."""
+        import shutil
+        deleted = 0
+        for path in [self.vector_store_path, self.graph_path]:
+            try:
+                if not os.path.exists(path):
+                    continue
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                    deleted += 1
+                else:
+                    os.remove(path)
+                    deleted += 1
+            except Exception as e:
+                print(f"WARN: No se pudo eliminar {path}: {e}")
+        return deleted
+
+    def update_graph_db(self) -> None:
+        """Rebuild the graph DB from current cache files."""
+        # Force rebuild regardless of existing files
+        self.build_graph()
+
+    def update_graph_cache(self, db_connector) -> None:
+        """Refresh the JSON cache using the provided db connector and current settings."""
+        if not hasattr(db_connector, 'connect_and_cache'):
+            raise AttributeError("El conector de BD no soporta connect_and_cache")
+        db_connector.connect_and_cache()
 
     def load_graph(self):
         try:

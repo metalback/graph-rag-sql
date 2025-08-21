@@ -14,7 +14,9 @@ except Exception:
 def _split_csv(value: Optional[str]) -> Optional[List[str]]:
     if not value:
         return None
-    parts = [p.strip() for p in value.split(',') if p.strip()]
+    # Remove inline comments: everything after '#'
+    no_comment = value.split('#', 1)[0]
+    parts = [p.strip() for p in no_comment.split(',') if p.strip()]
     return parts or None
 
 
@@ -51,6 +53,14 @@ class Settings:
     ANTHROPIC_MAX_TOKENS: int = int(os.environ.get('ANTHROPIC_MAX_TOKENS', '1024'))
     ANTHROPIC_TEMPERATURE: float = float(os.environ.get('ANTHROPIC_TEMPERATURE', '0.2'))
 
+    # Graph/Cache configuration
+    GRAPH_CACHE_DIR: str = os.environ.get('GRAPH_CACHE_DIR', 'cache')
+    GRAPH_ALLOWED_SCHEMAS_RAW: Optional[str] = os.environ.get('GRAPH_ALLOWED_SCHEMAS')
+    GRAPH_INCLUDE_TABLES_RAW: Optional[str] = os.environ.get('GRAPH_INCLUDE_TABLES')
+    GRAPH_EXCLUDE_TABLES_RAW: Optional[str] = os.environ.get('GRAPH_EXCLUDE_TABLES')
+    GRAPH_SAMPLE_ROWS: int = int(os.environ.get('GRAPH_SAMPLE_ROWS', '300'))
+    GRAPH_MAX_COMMON_VALUES: int = int(os.environ.get('GRAPH_MAX_COMMON_VALUES', '15'))
+
     @property
     def CORS_ORIGINS(self) -> Optional[List[str]]:
         return _split_csv(self.CORS_ORIGINS_RAW)
@@ -81,6 +91,19 @@ class Settings:
                 'ANTHROPIC_TEMPERATURE': self.ANTHROPIC_TEMPERATURE,
             }
         return {}
+
+    # Helpers to expose lists from CSV envs
+    @property
+    def GRAPH_ALLOWED_SCHEMAS(self) -> Optional[list[str]]:
+        return _split_csv(self.GRAPH_ALLOWED_SCHEMAS_RAW)
+
+    @property
+    def GRAPH_INCLUDE_TABLES(self) -> Optional[list[str]]:
+        return _split_csv(self.GRAPH_INCLUDE_TABLES_RAW)
+
+    @property
+    def GRAPH_EXCLUDE_TABLES(self) -> Optional[list[str]]:
+        return _split_csv(self.GRAPH_EXCLUDE_TABLES_RAW)
 
 
 # Singleton-like settings instance
