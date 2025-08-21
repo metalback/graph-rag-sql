@@ -1,0 +1,7 @@
+# Documentacion de comandos para pruebas
+curl -X POST http://localhost:5000/api/build-graph
+curl -s -X POST http://127.0.0.1:5000/api/query -H 'Content-Type: application/json' -d '{"prompt":"lista las primeras 10 filas de alguna tabla sencilla"}' | jq
+curl -s -X POST http://127.0.0.1:5000/api/graph/delete-cache
+curl -s -X POST http://127.0.0.1:5000/api/graph/delete-db
+curl -s -X POST http://127.0.0.1:5000/api/graph/update-db
+curl -s -X POST http://127.0.0.1:5000/api/graph/update-cache

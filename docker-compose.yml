@@ -5,15 +5,38 @@ services:
     ports:
       - "5000:5000"
     environment:
-      GOOGLE_AI_KEY: ${GOOGLE_AI_KEY}
+      # App
+      FLASK_ENV: ${FLASK_ENV}
+      APP_HOST: ${APP_HOST}
+      APP_PORT: ${APP_PORT}
+      CORS_ORIGINS: ${CORS_ORIGINS}
       FLASK_DEBUG: 1
+      
+      # LLM
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      GOOGLE_AI_KEY: ${GOOGLE_AI_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+
+      # DB selection and MSSQL connection
+      DB_PROVIDER: ${DB_PROVIDER}
+      
+      # Legacy/optional MSSQL params (used by previous cache logic; kept for compatibility)
       DB_HOST: ${DB_HOST}
       DB_IP: ${DB_IP}
       DB_PORT: ${DB_PORT}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
+      DB_DRIVER: ${DB_DRIVER}
+
+      # Graph/Cache configuration
+      GRAPH_CACHE_DIR: ${GRAPH_CACHE_DIR}
+      GRAPH_ALLOWED_SCHEMAS: ${GRAPH_ALLOWED_SCHEMAS}
+      GRAPH_INCLUDE_TABLES: ${GRAPH_INCLUDE_TABLES}
+      GRAPH_EXCLUDE_TABLES: ${GRAPH_EXCLUDE_TABLES}
+      GRAPH_SAMPLE_ROWS: ${GRAPH_SAMPLE_ROWS}
+      GRAPH_MAX_COMMON_VALUES: ${GRAPH_MAX_COMMON_VALUES}
     volumes:
       - ./app:/app/app
       - ./cache:/app/cache
-
