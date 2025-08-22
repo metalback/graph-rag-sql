@@ -196,6 +196,135 @@ class MSSQLConnector:
                     vc = df[col].value_counts()
                     common_values = vc.keys().tolist()[: min(max_common_values, len(vc))]
                     freq_dict[col] = common_values
+                # --- Extra metadata: Columns, PKs, FKs, incoming FKs, constraints, procedures ---
+                meta: dict[str, object] = {}
+                try:
+                    with self.engine.begin() as conn:  # type: ignore
+                        # Columns info
+                        cols_sql = (
+                            "SELECT c.name AS column_name, t.name AS data_type, c.max_length, c.is_nullable "
+                            "FROM sys.columns c "
+                            "JOIN sys.types t ON c.user_type_id = t.user_type_id "
+                            "WHERE c.object_id = OBJECT_ID(:fqtn) "
+                            "ORDER BY c.column_id"
+                        )
+                        cols_df = pd.read_sql_query(cols_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["columns_info"] = cols_df.to_dict(orient="records") if not cols_df.empty else []
+
+                        # Primary keys
+                        pk_sql = (
+                            "SELECT i.name AS pk_name, c.name AS column_name "
+                            "FROM sys.indexes i "
+                            "JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id "
+                            "JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id "
+                            "WHERE i.is_primary_key = 1 AND i.object_id = OBJECT_ID(:fqtn) "
+                            "ORDER BY ic.key_ordinal"
+                        )
+                        pk_df = pd.read_sql_query(pk_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["pk_columns"] = pk_df["column_name"].tolist() if not pk_df.empty else []
+
+                        # Foreign keys (outgoing from this table)
+                        fk_sql = (
+                            "SELECT f.name AS fk_name, "
+                            "SCHEMA_NAME(OBJECT_SCHEMA_ID(f.parent_object_id)) AS child_schema, "
+                            "OBJECT_NAME(f.parent_object_id) AS child_table, "
+                            "COL_NAME(fc.parent_object_id, fc.parent_column_id) AS child_column, "
+                            "SCHEMA_NAME(OBJECT_SCHEMA_ID(f.referenced_object_id)) AS parent_schema, "
+                            "OBJECT_NAME(f.referenced_object_id) AS parent_table, "
+                            "COL_NAME(fc.referenced_object_id, fc.referenced_column_id) AS parent_column "
+                            "FROM sys.foreign_keys AS f "
+                            "INNER JOIN sys.foreign_key_columns AS fc ON f.object_id = fc.constraint_object_id "
+                            "WHERE f.parent_object_id = OBJECT_ID(:fqtn)"
+                        )
+                        fk_df = pd.read_sql_query(fk_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["foreign_keys"] = (
+                            fk_df.to_dict(orient="records") if not fk_df.empty else []
+                        )
+
+                        # Incoming FKs (tables referencing this table)
+                        rfk_sql = (
+                            "SELECT f.name AS fk_name, "
+                            "SCHEMA_NAME(OBJECT_SCHEMA_ID(f.parent_object_id)) AS child_schema, "
+                            "OBJECT_NAME(f.parent_object_id) AS child_table, "
+                            "COL_NAME(fc.parent_object_id, fc.parent_column_id) AS child_column, "
+                            "SCHEMA_NAME(OBJECT_SCHEMA_ID(f.referenced_object_id)) AS parent_schema, "
+                            "OBJECT_NAME(f.referenced_object_id) AS parent_table, "
+                            "COL_NAME(fc.referenced_object_id, fc.referenced_column_id) AS parent_column "
+                            "FROM sys.foreign_keys AS f "
+                            "INNER JOIN sys.foreign_key_columns AS fc ON f.object_id = fc.constraint_object_id "
+                            "WHERE f.referenced_object_id = OBJECT_ID(:fqtn)"
+                        )
+                        rfk_df = pd.read_sql_query(rfk_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["referenced_by"] = (
+                            rfk_df.to_dict(orient="records") if not rfk_df.empty else []
+                        )
+
+                        # Unique indexes/constraints
+                        uniq_sql = (
+                            "SELECT i.name AS index_name, STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY ic.key_ordinal) AS columns "
+                            "FROM sys.indexes i "
+                            "JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id "
+                            "JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id "
+                            "WHERE i.is_unique = 1 AND i.object_id = OBJECT_ID(:fqtn) "
+                            "GROUP BY i.name"
+                        )
+                        uniq_df = pd.read_sql_query(uniq_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["unique_indexes"] = uniq_df.to_dict(orient="records") if not uniq_df.empty else []
+
+                        # Check constraints (store definition)
+                        check_sql = (
+                            "SELECT cc.name AS constraint_name, TRY_CONVERT(NVARCHAR(MAX), cc.definition) AS definition "
+                            "FROM sys.check_constraints cc "
+                            "WHERE cc.parent_object_id = OBJECT_ID(:fqtn)"
+                        )
+                        check_df = pd.read_sql_query(check_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["check_constraints"] = check_df.to_dict(orient="records") if not check_df.empty else []
+
+                        # Default constraints
+                        def_sql = (
+                            "SELECT dc.name AS constraint_name, c.name AS column_name, TRY_CONVERT(NVARCHAR(MAX), dc.definition) AS definition "
+                            "FROM sys.default_constraints dc "
+                            "JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id "
+                            "WHERE dc.parent_object_id = OBJECT_ID(:fqtn)"
+                        )
+                        def_df = pd.read_sql_query(def_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        meta["default_constraints"] = def_df.to_dict(orient="records") if not def_df.empty else []
+
+                        # Procedures referencing this table (simple LIKE match)
+                        proc_sql = (
+                            "DECLARE @TableName NVARCHAR(512) = :fqtn; "
+                            "SELECT o.name AS proc_name, SCHEMA_NAME(o.schema_id) AS proc_schema, o.type_desc AS obj_type "
+                            ", TRY_CONVERT(NVARCHAR(MAX), m.definition) AS definition "
+                            "FROM sys.sql_modules m "
+                            "INNER JOIN sys.objects o ON m.object_id = o.object_id "
+                            "WHERE m.definition LIKE '%' + @TableName + '%' AND o.type = 'P' "
+                            "ORDER BY proc_schema, proc_name"
+                        )
+                        proc_df = pd.read_sql_query(proc_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        # To avoid huge JSONs, do not dump definitions by default
+                        if not proc_df.empty:
+                            meta["procedures"] = [
+                                {
+                                    "name": r["proc_name"],
+                                    "schema": r["proc_schema"],
+                                }
+                                for _, r in proc_df.iterrows()
+                            ]
+                        else:
+                            meta["procedures"] = []
+                except Exception as e:
+                    print(f"WARN: No se pudo obtener metadata de {fqtn}: {e}")
+                    meta.setdefault("columns_info", [])
+                    meta.setdefault("pk_columns", [])
+                    meta.setdefault("foreign_keys", [])
+                    meta.setdefault("referenced_by", [])
+                    meta.setdefault("unique_indexes", [])
+                    meta.setdefault("check_constraints", [])
+                    meta.setdefault("default_constraints", [])
+                    meta.setdefault("procedures", [])
+
+                # Embed metadata under a reserved key
+                freq_dict["__meta"] = meta
                 with open(cache_file, "w") as f:
                     import json
                     json.dump(freq_dict, f, indent=2, default=str)

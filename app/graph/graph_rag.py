@@ -47,23 +47,36 @@ class GraphRAG:
                 try:
                     with open(file_path, 'r') as f:
                         content = json.load(f)
-                        if content:
-                            # Extract column names (first level of the JSON file)
-                            column_names = list(content.keys()) if content else []
-                            # Convert content back to string for vector store
-                            content_str = json.dumps(content)
-
-                            documents.append(Document(
-                                page_content=content_str,
-                                metadata={
-                                    'db': db_name,
-                                    'table': table_name,
-                                    'columns': column_names
-                                }
-                            ))
-                            print(f"Added document for {db_name}.{table_name} with columns: {column_names}")
-                        else:
+                        if content is None:
                             print(f"Warning: {file} is empty")
+                            continue
+                        # Separate metadata and column frequency content
+                        meta = content.pop('__meta', {}) if isinstance(content, dict) else {}
+                        column_names = list(content.keys()) if isinstance(content, dict) else []
+                        # Convert only frequency content for vector store
+                        content_str = json.dumps(content)
+
+                        documents.append(Document(
+                            page_content=content_str,
+                            metadata={
+                                'db': db_name,
+                                'table': table_name,
+                                'columns': column_names,
+                                'meta': meta,
+                            }
+                        ))
+                        # Pre-create node with attributes (will ensure present even if no edges)
+                        node_id = f"{db_name}.{table_name}"
+                        pk_cols = meta.get('pk_columns', []) if isinstance(meta, dict) else []
+                        procs = meta.get('procedures', []) if isinstance(meta, dict) else []
+                        self.graph.add_node(
+                            node_id,
+                            columns=column_names,
+                            frequent_values=content_str,
+                            pk_columns=pk_cols,
+                            procedures=procs,
+                        )
+                        print(f"Added document for {db_name}.{table_name} with columns: {column_names} and pk_columns: {pk_cols}")
                 except Exception as e:
                     print(f"Error reading {file}: {str(e)}")
 
@@ -91,16 +104,34 @@ class GraphRAG:
         similarity_threshold = 0.3
         for i, doc1 in enumerate(documents):
             node1 = f"{doc1.metadata['db']}.{doc1.metadata['table']}"
-            self.graph.add_node(node1, columns=doc1.metadata['columns'], frequent_values=doc1.page_content)
+            # Ensure node exists with attributes (already added above)
             for j, doc2 in enumerate(documents[i+1:], start=i+1):
                 node2 = f"{doc2.metadata['db']}.{doc2.metadata['table']}"
                 similarities = self.vector_store.similarity_search_with_score(doc1.page_content, k=10)  # top similar documents
-                # find sim entry matching doc2
                 similarity = next((sim for sim in similarities if sim[0].metadata['table'] == doc2.metadata['table'] and sim[0].metadata['db'] == doc2.metadata['db']), None)
                 if similarity:
                     similarity_score = float(similarity[1])
                     if similarity_score >= similarity_threshold:
-                        self.graph.add_edge(node1, node2, weight=similarity_score)
+                        self.graph.add_edge(node1, node2, weight=similarity_score, type='similarity')
+
+        # Add FK edges using metadata
+        try:
+            for doc in documents:
+                meta = doc.metadata.get('meta') or {}
+                fks = meta.get('foreign_keys') if isinstance(meta, dict) else None
+                if not fks:
+                    continue
+                child_node = f"{doc.metadata['db']}.{doc.metadata['table']}"
+                for fk in fks:
+                    try:
+                        parent_node = f"{fk['parent_schema']}.{fk['parent_table']}"
+                        child_col = fk.get('child_column')
+                        parent_col = fk.get('parent_column')
+                        self.graph.add_edge(child_node, parent_node, type='fk', child_column=child_col, parent_column=parent_col)
+                    except Exception as e:
+                        print(f"WARN: No se pudo crear arista FK para {child_node}: {e}")
+        except Exception as e:
+            print(f"WARN: Error agregando FKs al grafo: {e}")
 
         # Save vector store and graph
         try:
