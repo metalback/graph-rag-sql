@@ -3,6 +3,7 @@ import json
 import networkx as nx
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 from ..config import settings
 
@@ -74,9 +75,14 @@ class GraphRAG:
 
         # Create vector store
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(google_api_key=os.environ['GOOGLE_AI_KEY'], model="models/embedding-001")
+            model_name = "intfloat/multilingual-e5-small"
+            embeddings = HuggingFaceEmbeddings(
+                model_name=model_name,
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
+            )
             self.vector_store = FAISS.from_documents(documents, embeddings)
-            print("Vector store created successfully")
+            print(f"Vector store created successfully using {model_name}")
         except Exception as e:
             print(f"Error creating vector store: {str(e)}")
             return
@@ -149,10 +155,15 @@ class GraphRAG:
 
     def load_graph(self):
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(google_api_key=os.environ['GOOGLE_AI_KEY'], model="models/embedding-001")
+            model_name = "intfloat/multilingual-e5-small"
+            embeddings = HuggingFaceEmbeddings(
+                model_name=model_name,
+                model_kwargs={'device': 'cpu'},
+                encode_kwargs={'normalize_embeddings': True}
+            )
             self.vector_store = FAISS.load_local(self.vector_store_path, embeddings, allow_dangerous_deserialization=True)
             self.graph = nx.read_gml(self.graph_path)
-            print("Vector store and graph loaded successfully")
+            print(f"Vector store and graph loaded successfully using {model_name}")
         except Exception as e:
             print(f"Error loading vector store or graph: {str(e)}")
 
