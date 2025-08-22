@@ -186,8 +186,10 @@ class MSSQLConnector:
                 fqtn = f"[{schema}].[{table_name}]"
                 try:
                     query = f"SELECT TOP {int(sample_rows)} * FROM {fqtn}"
+                    print(f"[connect_and_cache][SQL][sample] {query}")
                     with self.engine.begin() as conn:  # type: ignore
                         df = pd.read_sql_query(query, conn)
+                    print(f"[connect_and_cache][SQL][sample] rows={0 if df is None else len(df)} cols={0 if df is None else len(df.columns)}")
                 except Exception as e:
                     print(f"WARN: No se pudo leer {fqtn}: {e}")
                     continue
@@ -205,11 +207,16 @@ class MSSQLConnector:
                             "SELECT c.name AS column_name, t.name AS data_type, c.max_length, c.is_nullable "
                             "FROM sys.columns c "
                             "JOIN sys.types t ON c.user_type_id = t.user_type_id "
-                            "WHERE c.object_id = OBJECT_ID(:fqtn) "
+                            "JOIN sys.tables tb ON c.object_id   = tb.object_id "
+                            "JOIN sys.schemas s ON tb.schema_id  = s.schema_id "
+                            "WHERE s.name = ? AND tb.name = ?  "
                             "ORDER BY c.column_id"
                         )
-                        cols_df = pd.read_sql_query(cols_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][columns] fqtn={schema}.{table_name} -> {cols_sql}")
+                        cols_df = pd.read_sql_query(cols_sql, conn, params=(schema, table_name))
+                        print(f"[connect_and_cache][SQL][columns] rows={0 if cols_df is None else len(cols_df)}")
                         meta["columns_info"] = cols_df.to_dict(orient="records") if not cols_df.empty else []
+                        print(f"[connect_and_cache][SQL][columns] meta={meta}")
 
                         # Primary keys
                         pk_sql = (
@@ -217,10 +224,12 @@ class MSSQLConnector:
                             "FROM sys.indexes i "
                             "JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id "
                             "JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id "
-                            "WHERE i.is_primary_key = 1 AND i.object_id = OBJECT_ID(:fqtn) "
+                            "WHERE i.is_primary_key = 1 AND i.object_id = OBJECT_ID(?) "
                             "ORDER BY ic.key_ordinal"
                         )
-                        pk_df = pd.read_sql_query(pk_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][pk] fqtn={schema}.{table_name} -> {pk_sql}")
+                        pk_df = pd.read_sql_query(pk_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][pk] rows={0 if pk_df is None else len(pk_df)}")
                         meta["pk_columns"] = pk_df["column_name"].tolist() if not pk_df.empty else []
 
                         # Foreign keys (outgoing from this table)
@@ -234,9 +243,11 @@ class MSSQLConnector:
                             "COL_NAME(fc.referenced_object_id, fc.referenced_column_id) AS parent_column "
                             "FROM sys.foreign_keys AS f "
                             "INNER JOIN sys.foreign_key_columns AS fc ON f.object_id = fc.constraint_object_id "
-                            "WHERE f.parent_object_id = OBJECT_ID(:fqtn)"
+                            "WHERE f.parent_object_id = OBJECT_ID(?)"
                         )
-                        fk_df = pd.read_sql_query(fk_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][fk_out] fqtn={schema}.{table_name} -> {fk_sql}")
+                        fk_df = pd.read_sql_query(fk_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][fk_out] rows={0 if fk_df is None else len(fk_df)}")
                         meta["foreign_keys"] = (
                             fk_df.to_dict(orient="records") if not fk_df.empty else []
                         )
@@ -252,9 +263,11 @@ class MSSQLConnector:
                             "COL_NAME(fc.referenced_object_id, fc.referenced_column_id) AS parent_column "
                             "FROM sys.foreign_keys AS f "
                             "INNER JOIN sys.foreign_key_columns AS fc ON f.object_id = fc.constraint_object_id "
-                            "WHERE f.referenced_object_id = OBJECT_ID(:fqtn)"
+                            "WHERE f.referenced_object_id = OBJECT_ID(?)"
                         )
-                        rfk_df = pd.read_sql_query(rfk_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][fk_in] fqtn={schema}.{table_name} -> {rfk_sql}")
+                        rfk_df = pd.read_sql_query(rfk_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][fk_in] rows={0 if rfk_df is None else len(rfk_df)}")
                         meta["referenced_by"] = (
                             rfk_df.to_dict(orient="records") if not rfk_df.empty else []
                         )
@@ -265,19 +278,23 @@ class MSSQLConnector:
                             "FROM sys.indexes i "
                             "JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id "
                             "JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id "
-                            "WHERE i.is_unique = 1 AND i.object_id = OBJECT_ID(:fqtn) "
+                            "WHERE i.is_unique = 1 AND i.object_id = OBJECT_ID(?) "
                             "GROUP BY i.name"
                         )
-                        uniq_df = pd.read_sql_query(uniq_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][unique] fqtn={schema}.{table_name} -> {uniq_sql}")
+                        uniq_df = pd.read_sql_query(uniq_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][unique] rows={0 if uniq_df is None else len(uniq_df)}")
                         meta["unique_indexes"] = uniq_df.to_dict(orient="records") if not uniq_df.empty else []
 
                         # Check constraints (store definition)
                         check_sql = (
                             "SELECT cc.name AS constraint_name, TRY_CONVERT(NVARCHAR(MAX), cc.definition) AS definition "
                             "FROM sys.check_constraints cc "
-                            "WHERE cc.parent_object_id = OBJECT_ID(:fqtn)"
+                            "WHERE cc.parent_object_id = OBJECT_ID(?)"
                         )
-                        check_df = pd.read_sql_query(check_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][check] fqtn={schema}.{table_name} -> {check_sql}")
+                        check_df = pd.read_sql_query(check_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][check] rows={0 if check_df is None else len(check_df)}")
                         meta["check_constraints"] = check_df.to_dict(orient="records") if not check_df.empty else []
 
                         # Default constraints
@@ -285,14 +302,16 @@ class MSSQLConnector:
                             "SELECT dc.name AS constraint_name, c.name AS column_name, TRY_CONVERT(NVARCHAR(MAX), dc.definition) AS definition "
                             "FROM sys.default_constraints dc "
                             "JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id "
-                            "WHERE dc.parent_object_id = OBJECT_ID(:fqtn)"
+                            "WHERE dc.parent_object_id = OBJECT_ID(?)"
                         )
-                        def_df = pd.read_sql_query(def_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][default] fqtn={schema}.{table_name} -> {def_sql}")
+                        def_df = pd.read_sql_query(def_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][default] rows={0 if def_df is None else len(def_df)}")
                         meta["default_constraints"] = def_df.to_dict(orient="records") if not def_df.empty else []
 
                         # Procedures referencing this table (simple LIKE match)
                         proc_sql = (
-                            "DECLARE @TableName NVARCHAR(512) = :fqtn; "
+                            "DECLARE @TableName NVARCHAR(512) = ?; "
                             "SELECT o.name AS proc_name, SCHEMA_NAME(o.schema_id) AS proc_schema, o.type_desc AS obj_type "
                             ", TRY_CONVERT(NVARCHAR(MAX), m.definition) AS definition "
                             "FROM sys.sql_modules m "
@@ -300,7 +319,9 @@ class MSSQLConnector:
                             "WHERE m.definition LIKE '%' + @TableName + '%' AND o.type = 'P' "
                             "ORDER BY proc_schema, proc_name"
                         )
-                        proc_df = pd.read_sql_query(proc_sql, conn, params={"fqtn": f"{schema}.{table_name}"})
+                        print(f"[connect_and_cache][SQL][procs] fqtn={schema}.{table_name} -> {proc_sql}")
+                        proc_df = pd.read_sql_query(proc_sql, conn, params=(f"{schema}.{table_name}"))
+                        print(f"[connect_and_cache][SQL][procs] rows={0 if proc_df is None else len(proc_df)}")
                         # To avoid huge JSONs, do not dump definitions by default
                         if not proc_df.empty:
                             meta["procedures"] = [
