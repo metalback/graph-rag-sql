@@ -1,4 +1,5 @@
 import os
+import logging
 import io
 import networkx as nx
 import matplotlib
@@ -10,6 +11,13 @@ from .database import get_database_connector
 from .graph import GraphRAG
 from .config import settings
 from .llm.gemini import GeminiLLM
+from .vector_store.document_vectors import (
+  build_vectorstore,
+  update_vectorstore,
+  delete_vectorstore,
+  get_retriever,
+  get_RAG_answer,
+)
 import pandas as pd
 try:
   from .llm.openai import OpenAILLM  # type: ignore
@@ -21,6 +29,9 @@ except Exception:  # pragma: no cover
   AnthropicLLM = None  # type: ignore
 
 app = Flask(__name__, template_folder='templates')
+# Basic logging config (can override with LOG_LEVEL env)
+logging.basicConfig(level=os.getenv('LOG_LEVEL', 'INFO'))
+logger = logging.getLogger(__name__)
 # Enable CORS based on settings (allow all if not specified)
 if settings.CORS_ORIGINS:
   CORS(app, origins=settings.CORS_ORIGINS)
@@ -115,6 +126,31 @@ def api_build_graph():
     return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/api/vector/query', methods=['POST'])
+def api_vector_query():
+  """
+  Query the persisted vector store to retrieve similar documents and generate an answer.
+  Expects JSON: {"query": "...", "k": 10?}
+  Returns: {status, answer, context}
+  """
+  try:
+    data = request.get_json(silent=True) or {}
+    user_query = (data.get('query') or '').strip()
+    if not user_query:
+      return jsonify({"status": "error", "message": "Missing 'query' in JSON body"}), 400
+    k = data.get('k', 10)
+    logger.info("/api/vector/query: query_len=%s k=%s", len(user_query), k)
+    retriever = get_retriever(k=int(k))
+    result = get_RAG_answer(user_query, llm, retriever)
+    logger.info("/api/vector/query: answer_len=%s context_len=%s", len(result.get('answer','')), len(result.get('context','')))
+    return jsonify({"status": "ok", **result}), 200
+  except FileNotFoundError as e:
+    logger.warning("/api/vector/query: vector store not found: %s", e)
+    return jsonify({"status": "error", "message": str(e)}), 400
+  except Exception as e:
+    logger.exception("/api/vector/query: failed: %s", e)
+    return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/graph/image', methods=['GET'])
 def api_graph_image():
   """
@@ -181,6 +217,54 @@ def api_graph_update_cache():
       pass
     return jsonify({"status": "ok", "message": "Cache refreshed", "cache_json_before": before, "cache_json_after": after, "created_or_existing": max(0, after)}), 200
   except Exception as e:
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/vector/build', methods=['POST'])
+def api_vector_build():
+  """
+  Build a new Chroma vector store from documents/ (replaces existing).
+  Returns: {status, chunks, path}
+  """
+  try:
+    logger.info("/api/vector/build: starting build from documents/")
+    chunks, path = build_vectorstore(documents_dir='documents')
+    logger.info("/api/vector/build: completed with chunks=%s path=%s", chunks, path)
+    return jsonify({"status": "ok", "chunks": chunks, "path": path}), 200
+  except Exception as e:
+    logger.exception("/api/vector/build: failed: %s", e)
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/vector/update', methods=['POST'])
+def api_vector_update():
+  """
+  Update (rebuild) the Chroma vector store from current documents/.
+  Returns: {status, chunks, path}
+  """
+  try:
+    logger.info("/api/vector/update: starting update from documents/")
+    chunks, path = update_vectorstore(documents_dir='documents')
+    logger.info("/api/vector/update: completed with chunks=%s path=%s", chunks, path)
+    return jsonify({"status": "ok", "chunks": chunks, "path": path}), 200
+  except Exception as e:
+    logger.exception("/api/vector/update: failed: %s", e)
+    return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/vector/delete', methods=['POST'])
+def api_vector_delete():
+  """
+  Delete the persisted Chroma vector store from disk.
+  Returns: {status, deleted}
+  """
+  try:
+    logger.info("/api/vector/delete: deleting vector store")
+    deleted = delete_vectorstore()
+    logger.info("/api/vector/delete: deleted=%s", deleted)
+    return jsonify({"status": "ok", "deleted": deleted}), 200
+  except Exception as e:
+    logger.exception("/api/vector/delete: failed: %s", e)
     return jsonify({"status": "error", "message": str(e)}), 500
 
 

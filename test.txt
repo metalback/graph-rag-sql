@@ -5,3 +5,6 @@ curl -s -X POST http://127.0.0.1:5000/api/graph/delete-cache
 curl -s -X POST http://127.0.0.1:5000/api/graph/delete-db
 curl -s -X POST http://127.0.0.1:5000/api/graph/update-db
 curl -s -X POST http://127.0.0.1:5000/api/graph/update-cache
+curl -s -X POST http://127.0.0.1:8080/api/vector/build
+curl -s -X POST http://127.0.0.1:8080/api/vector/update
+curl -s -X POST http://127.0.0.1:8080/api/vector/delete

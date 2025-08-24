@@ -16,3 +16,12 @@ Flask-Cors==4.0.1
 # Optional provider packages (used if selected via LLM_PROVIDER)
 langchain-openai==0.1.22
 langchain-anthropic==0.1.19
+
+# Vector store and embeddings for documents
+chromadb==0.5.5
+sentence-transformers==3.0.1
+transformers==4.43.4
+nltk==3.9.1
+pypdf==4.3.1
+python-docx==1.1.2
+langchain-text-splitters==0.2.2
