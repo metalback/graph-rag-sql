@@ -40,3 +40,5 @@ services:
     volumes:
       - ./app:/app/app
       - ./cache:/app/cache
+      - ./vector_store:/app/vector_store
+      - ./documents:/app/documents

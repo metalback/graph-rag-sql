@@ -5,3 +5,5 @@
 
 # Ignore cache directory
 cache/
+documents/
+vector_store/

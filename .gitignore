@@ -91,3 +91,12 @@ logs/
 
 # Docker overrides
 docker-compose.override.yml
+
+# Documents
+documents/
+
+# Vector store
+vector_store/
+
+# Cache
+cache/
