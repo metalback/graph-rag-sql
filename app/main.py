@@ -10,7 +10,7 @@ from flask_cors import CORS
 from .database import get_database_connector
 from .graph import GraphRAG
 from .config import settings
-from .llm.gemini import GeminiLLM
+from .llm import create_llm_from_env
 from .vector_store.document_vectors import (
   build_vectorstore,
   update_vectorstore,
@@ -19,14 +19,6 @@ from .vector_store.document_vectors import (
   get_RAG_answer,
 )
 import pandas as pd
-try:
-  from .llm.openai import OpenAILLM  # type: ignore
-except Exception:  # pragma: no cover
-  OpenAILLM = None  # type: ignore
-try:
-  from .llm.anthropic import AnthropicLLM  # type: ignore
-except Exception:  # pragma: no cover
-  AnthropicLLM = None  # type: ignore
 
 app = Flask(__name__, template_folder='templates')
 # Basic logging config (can override with LOG_LEVEL env)
@@ -45,21 +37,7 @@ graph_rag = GraphRAG()
 # Database run_sql bound from the selected connector
 run_sql = db_connector.run_sql  # type: ignore
 
-def _create_llm():
-  provider = (settings.LLM_PROVIDER or os.environ.get('LLM_PROVIDER', 'google')).lower()
-  if provider == 'google':
-    return GeminiLLM()
-  if provider == 'openai':
-    if OpenAILLM is None:
-      raise ImportError('langchain-openai no instalado; no se puede usar OpenAI')
-    return OpenAILLM()  # type: ignore
-  if provider == 'anthropic':
-    if AnthropicLLM is None:
-      raise ImportError('langchain-anthropic no instalado; no se puede usar Anthropic')
-    return AnthropicLLM()  # type: ignore
-  raise ValueError(f"Proveedor LLM no soportado: {provider}")
-
-llm = _create_llm()
+llm = create_llm_from_env()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():

@@ -53,6 +53,13 @@ class Settings:
     ANTHROPIC_MAX_TOKENS: int = int(os.environ.get('ANTHROPIC_MAX_TOKENS', '1024'))
     ANTHROPIC_TEMPERATURE: float = float(os.environ.get('ANTHROPIC_TEMPERATURE', '0.2'))
 
+    # AWS Bedrock config
+    AWS_BEARER_TOKEN_BEDROCK: Optional[str] = os.environ.get('AWS_BEARER_TOKEN_BEDROCK')
+    AWS_REGION: str = os.environ.get('AWS_REGION', 'us-east-1')
+    BEDROCK_MODEL: str = os.environ.get('BEDROCK_MODEL', 'us.anthropic.claude-3-5-haiku-20241022-v1:0')
+    BEDROCK_MAX_TOKENS: int = int(os.environ.get('BEDROCK_MAX_TOKENS', '1024'))
+    BEDROCK_TEMPERATURE: float = float(os.environ.get('BEDROCK_TEMPERATURE', '0.2'))
+
     # Graph/Cache configuration
     GRAPH_CACHE_DIR: str = os.environ.get('GRAPH_CACHE_DIR', 'cache')
     GRAPH_ALLOWED_SCHEMAS_RAW: Optional[str] = os.environ.get('GRAPH_ALLOWED_SCHEMAS')
@@ -89,6 +96,14 @@ class Settings:
                 'ANTHROPIC_MODEL': self.ANTHROPIC_MODEL,
                 'ANTHROPIC_MAX_TOKENS': self.ANTHROPIC_MAX_TOKENS,
                 'ANTHROPIC_TEMPERATURE': self.ANTHROPIC_TEMPERATURE,
+            }
+        if self.LLM_PROVIDER == 'bedrock':
+            return {
+                'AWS_BEARER_TOKEN_BEDROCK': self.AWS_BEARER_TOKEN_BEDROCK,
+                'AWS_REGION': self.AWS_REGION,
+                'BEDROCK_MODEL': self.BEDROCK_MODEL,
+                'BEDROCK_MAX_TOKENS': self.BEDROCK_MAX_TOKENS,
+                'BEDROCK_TEMPERATURE': self.BEDROCK_TEMPERATURE,
             }
         return {}
 
