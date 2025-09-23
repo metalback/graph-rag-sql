@@ -1,0 +1,109 @@
+{
+    "tools": [
+      {
+        "function_declarations": [
+          {
+            "name": "formalizar_regla_negocio",
+            "description": "Convierte una pregunta del usuario en una formalización de regla de negocio basada solo en el contexto provisto (RAG). No devuelve SQL.",
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "version_esquema",
+                "intencion",
+                "entidad_negocio",
+                "metricas",
+                "filtros",
+                "periodo",
+                "desgloses",
+                "orden",
+                "definiciones",
+                "supuestos_controlados",
+                "ambiguedades",
+                "insuficiente_contexto",
+                "preguntas_faltantes",
+                "confianza"
+              ],
+              "properties": {
+                "version_esquema": { "type": "string", "const": "1.0-lite" },
+                "intencion": { "type": "string", "enum": ["contar","sumar","promediar","listar","comparar","tasa","porcentaje","otro"] },
+                "entidad_negocio": { "type": "string", "minLength": 1 },
+                "metricas": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["nombre","definicion","unidad","reglas_calculo"],
+                    "properties": {
+                      "nombre": { "type": "string" },
+                      "definicion": { "type": "string" },
+                      "unidad": { "type": ["string","null"] },
+                      "reglas_calculo": { "type": ["string","null"] },
+                      "referencia_contexto": { "type": ["string","null"] }
+                    }
+                  }
+                },
+                "filtros": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["campo_negocio","operador","valor"],
+                    "properties": {
+                      "campo_negocio": { "type": "string" },
+                      "operador": { "type": "string", "enum": ["=","!=" ,">",">=","<","<=","in","not_in","like","ilike","between"] },
+                      "valor": {},
+                      "observaciones": { "type": ["string","null"] },
+                      "referencia_contexto": { "type": ["string","null"] }
+                    }
+                  }
+                },
+                "periodo": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["tipo","desde","hasta","granularidad","descripcion_relativa"],
+                  "properties": {
+                    "tipo": { "type": "string", "enum": ["fecha_unica","rango","relativo","no_aplica"] },
+                    "desde": { "type": ["string","null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+                    "hasta": { "type": ["string","null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+                    "granularidad": { "type": "string", "enum": ["dia","mes","trimestre","anio","no_aplica"] },
+                    "descripcion_relativa": { "type": ["string","null"] }
+                  }
+                },
+                "desgloses": { "type": "array", "items": { "type": "string" } },
+                "orden": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["por","direccion","limite"],
+                  "properties": {
+                    "por": { "type": ["string","null"] },
+                    "direccion": { "type": ["string","null"], "enum": ["asc","desc",null] },
+                    "limite": { "type": ["number","null"] }
+                  }
+                },
+                "definiciones": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["termino","descripcion"],
+                    "properties": {
+                      "termino": { "type": "string" },
+                      "descripcion": { "type": "string" },
+                      "referencia_contexto": { "type": ["string","null"] }
+                    }
+                  }
+                },
+                "supuestos_controlados": { "type": "array", "items": { "type": "string" } },
+                "ambiguedades": { "type": "array", "items": { "type": "string" } },
+                "insuficiente_contexto": { "type": "boolean" },
+                "preguntas_faltantes": { "type": "array", "items": { "type": "string" } },
+                "confianza": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+  

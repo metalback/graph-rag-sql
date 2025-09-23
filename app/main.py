@@ -17,6 +17,8 @@ from .vector_store.document_vectors import (
   delete_vectorstore,
   get_retriever,
   get_RAG_answer,
+  get_context_documents,
+  format_context_documents,
 )
 import pandas as pd
 try:
@@ -125,6 +127,84 @@ def api_build_graph():
   except Exception as e:
     return jsonify({"status": "error", "message": str(e)}), 500
 
+
+def _load_function_declarations(logger: logging.Logger):
+  """Try to load function_declaration.json from common locations.
+  Returns the parsed 'tools' list or raises FileNotFoundError.
+  """
+  import json
+  candidate_paths = [
+    os.path.join(os.getcwd(), 'function_declaration.json'),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'function_declaration.json')),
+    '/app/function_declaration.json',
+  ]
+  for p in candidate_paths:
+    try:
+      if os.path.isfile(p):
+        logger.info("_load_function_declarations: loading %s", p)
+        with open(p, 'r', encoding='utf-8') as f:
+          data = json.load(f)
+          tools = data.get('tools')
+          if tools:
+            return tools
+    except Exception as ex:
+      logger.warning("_load_function_declarations: failed to read %s: %s", p, ex)
+  raise FileNotFoundError("function_declaration.json no encontrado dentro del contenedor. Monta el archivo o cópialo dentro de /app.")
+
+
+@app.route('/api/vector/formalize', methods=['POST'])
+def api_vector_formalize():
+  """
+  Formaliza una consulta de negocio usando RAG (contexto de vector store) y function calling de Gemini.
+  JSON esperado: {"query":"...", "k":10?, "extra_context":"..."?}
+  Respuesta: {status, function_call: {name, args}}
+  """
+  try:
+    data = request.get_json(silent=True) or {}
+    user_query = (data.get('query') or '').strip()
+    if not user_query:
+      return jsonify({"status": "error", "message": "Missing 'query' in JSON body"}), 400
+    k = int(data.get('k', 10))
+    extra_context = data.get('extra_context') or ""
+
+    logger.info("/api/vector/formalize: query_len=%s k=%s", len(user_query), k)
+
+    # Build retriever and get context
+    retriever = get_retriever(k=k)
+    docs = get_context_documents(user_query, retriever)
+    rag_context = format_context_documents(docs)
+
+    # System prompt + context
+    system_and_context = (
+      "Eres un formalizador. Usa solo el contexto provisto.\n"
+      "Devuelve EXCLUSIVAMENTE un function call a 'formalizar_regla_negocio'.\n"
+      "No SQL, no tablas/campos técnicos.\n\n"
+      "# CONTEXTO\n"
+      "- Glosario: 'usuario_de_programa' = persona con relación activa a un programa.\n"
+      "- Estados: 'vigente', 'caducado'.\n\n"
+      f"# CONTEXTO RAG\n{rag_context}\n\n"
+      f"# EXTRA\n{extra_context}"
+    )
+
+    # Load tools (function_declaration.json)
+    tools = _load_function_declarations(logger)
+
+    # Call Gemini function
+    fc = llm.function_call(
+      system_and_context=system_and_context,
+      user_question=user_query,
+      tools=tools,
+      generation_config={"temperature": 0.2},
+    )
+
+    logger.info("/api/vector/formalize: function_call name=%s", fc.get('name'))
+    return jsonify({"status": "ok", "function_call": fc, "context_len": len(rag_context)}), 200
+  except FileNotFoundError as e:
+    logger.warning("/api/vector/formalize: schema not found: %s", e)
+    return jsonify({"status": "error", "message": str(e)}), 400
+  except Exception as e:
+    logger.exception("/api/vector/formalize: failed: %s", e)
+    return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/vector/query', methods=['POST'])
 def api_vector_query():
