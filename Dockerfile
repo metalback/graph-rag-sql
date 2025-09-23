@@ -44,6 +44,5 @@ COPY app/ /app/app/
 
 # Exposición y variables de ejecución
 EXPOSE 5000
-ENV FLASK_APP=app.main
 
-CMD ["python", "-m", "app.main"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]

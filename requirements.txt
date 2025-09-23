@@ -1,4 +1,8 @@
-Flask==3.0.3
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+jinja2==3.1.2
+aiofiles==23.2.1
 langchain==0.2.16
 google-cloud-aiplatform==1.65.0
 langchain-google-genai==1.0.10
@@ -11,11 +15,11 @@ pyodbc==5.1.0
 
 # Env management and CORS
 python-dotenv==1.0.1
-Flask-Cors==4.0.1
 
 # Optional provider packages (used if selected via LLM_PROVIDER)
 langchain-openai==0.1.22
 langchain-anthropic==0.1.19
+boto3==1.34.162
 
 # Vector store and embeddings for documents
 chromadb==0.5.5
