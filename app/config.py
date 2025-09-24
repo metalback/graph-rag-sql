@@ -7,8 +7,22 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
 except Exception:
-    # dotenv is optional at runtime; if missing, env must be provided by the environment
-    pass
+    # If dotenv is not available, try to load .env manually
+    import os
+    from pathlib import Path
+    
+    env_file = Path('.env')
+    if env_file.exists():
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key = key.strip()
+                    value = value.strip()
+                    # Only set if not already in environment
+                    if key not in os.environ:
+                        os.environ[key] = value
 
 
 def _split_csv(value: Optional[str]) -> Optional[List[str]]:
@@ -56,9 +70,11 @@ class Settings:
     # AWS Bedrock config
     AWS_BEARER_TOKEN_BEDROCK: Optional[str] = os.environ.get('AWS_BEARER_TOKEN_BEDROCK')
     AWS_REGION: str = os.environ.get('AWS_REGION', 'us-east-1')
-    BEDROCK_MODEL: str = os.environ.get('BEDROCK_MODEL', 'us.anthropic.claude-3-5-haiku-20241022-v1:0')
+    AWS_BEDROCK_MODEL_ID: str = os.environ.get('AWS_BEDROCK_MODEL_ID', 'us.anthropic.claude-3-5-sonnet-20241022-v2:0')
+    BEDROCK_MODEL: str = os.environ.get('BEDROCK_MODEL', 'us.anthropic.claude-3-5-sonnet-20241022-v2:0')  # Backward compatibility
     BEDROCK_MAX_TOKENS: int = int(os.environ.get('BEDROCK_MAX_TOKENS', '1024'))
     BEDROCK_TEMPERATURE: float = float(os.environ.get('BEDROCK_TEMPERATURE', '0.2'))
+    BEDROCK_TOP_P: float = float(os.environ.get('BEDROCK_TOP_P', '0.9'))
 
     # Graph/Cache configuration
     GRAPH_CACHE_DIR: str = os.environ.get('GRAPH_CACHE_DIR', 'cache')
@@ -101,9 +117,11 @@ class Settings:
             return {
                 'AWS_BEARER_TOKEN_BEDROCK': self.AWS_BEARER_TOKEN_BEDROCK,
                 'AWS_REGION': self.AWS_REGION,
+                'AWS_BEDROCK_MODEL_ID': self.AWS_BEDROCK_MODEL_ID,
                 'BEDROCK_MODEL': self.BEDROCK_MODEL,
                 'BEDROCK_MAX_TOKENS': self.BEDROCK_MAX_TOKENS,
                 'BEDROCK_TEMPERATURE': self.BEDROCK_TEMPERATURE,
+                'BEDROCK_TOP_P': self.BEDROCK_TOP_P,
             }
         return {}
 

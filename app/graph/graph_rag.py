@@ -2,7 +2,7 @@ import os
 import json
 import networkx as nx
 from langchain_community.vectorstores import FAISS
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 from ..config import settings
 
@@ -74,7 +74,7 @@ class GraphRAG:
 
         # Create vector store
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(google_api_key=os.environ['GOOGLE_AI_KEY'], model="models/embedding-001")
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
             self.vector_store = FAISS.from_documents(documents, embeddings)
             print("Vector store created successfully")
         except Exception as e:
@@ -149,12 +149,18 @@ class GraphRAG:
 
     def load_graph(self):
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(google_api_key=os.environ['GOOGLE_AI_KEY'], model="models/embedding-001")
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
             self.vector_store = FAISS.load_local(self.vector_store_path, embeddings, allow_dangerous_deserialization=True)
             self.graph = nx.read_gml(self.graph_path)
             print("Vector store and graph loaded successfully")
         except Exception as e:
             print(f"Error loading vector store or graph: {str(e)}")
+            print("Rebuilding vector store due to incompatibility...")
+            # Remove incompatible vector store and rebuild
+            if os.path.exists(self.vector_store_path):
+                import shutil
+                shutil.rmtree(os.path.dirname(self.vector_store_path))
+            self.build_graph()
 
     def get_context(self, query):
         if not self.vector_store:

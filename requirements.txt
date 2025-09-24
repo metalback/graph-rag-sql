@@ -20,6 +20,7 @@ python-dotenv==1.0.1
 langchain-openai==0.1.22
 langchain-anthropic==0.1.19
 boto3==1.34.162
+requests==2.31.0
 
 # Vector store and embeddings for documents
 chromadb==0.5.5

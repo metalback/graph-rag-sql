@@ -62,6 +62,8 @@ run_sql = db_connector.run_sql  # type: ignore
 
 llm = create_llm_from_env()
 
+logger.info("LLM provider: %s", llm)
+
 # Pydantic models for request/response
 class QueryRequest(BaseModel):
     prompt: str
@@ -347,7 +349,9 @@ async def api_query(query_request: QueryRequest):
             f"{user_prompt}\n\n"
             "If values do not exist in the sample data, assume that they may exist in the full database."
         )
+        logger.info("LLM prompt: %s", llm_prompt)
         sql_result = llm.submit_prompt(llm_prompt)
+        logger.info("LLM result: %s", sql_result)
 
         # Execute SQL and return results if possible
         response_data = QueryResponse(status="ok", sql=sql_result, context=context)
@@ -360,6 +364,7 @@ async def api_query(query_request: QueryRequest):
 
         return response_data
     except Exception as e:
+        logger.error("Error in /api/query endpoint: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':

@@ -9,8 +9,14 @@ Available providers:
 """
 
 import os
+import logging
 from typing import Optional, Dict, Any
+
 from .base import BaseLLM  # noqa: F401
+
+# Create independent logger to avoid circular imports
+logger = logging.getLogger(__name__)
+
 
 # Import providers
 try:
@@ -44,8 +50,10 @@ def create_llm(provider: Optional[str] = None, config: Optional[Dict[str, Any]] 
     """
     from ..config import settings
     
-    prov = (provider or settings.LLM_PROVIDER or os.environ.get("LLM_PROVIDER") or "google").lower()
+    prov = (provider or settings.LLM_PROVIDER or os.environ.get("LLM_PROVIDER") or "bedrock").lower()
     cfg = config or {}
+
+    logger.info("Using LLM provider: %s", prov)
 
     if prov == "google" or prov == "gemini":
         if GeminiLLM is None:
