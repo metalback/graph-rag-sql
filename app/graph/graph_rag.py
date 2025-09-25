@@ -1,10 +1,48 @@
 import os
 import json
 import networkx as nx
+from typing import List
+import requests
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.embeddings.base import Embeddings
 from langchain.schema import Document
 from ..config import settings
+
+
+class HTTPEmbeddings(Embeddings):
+    """HTTP client for external embedding service."""
+    
+    def __init__(self, service_url: str = "http://embedder:8000/embed"):
+        """Initialize HTTP embedding client."""
+        self.service_url = service_url
+    
+    def _get_embedding(self, text: str, mode: str) -> List[float]:
+        """Get embedding from HTTP service."""
+        try:
+            response = requests.post(
+                self.service_url,
+                headers={"Content-Type": "application/json"},
+                json={"text": text, "mode": mode},
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result.get("embedding", [])
+        except requests.exceptions.RequestException as e:
+            print(f"Error calling embedding service: {str(e)}")
+            raise RuntimeError(f"Failed to get embedding: {str(e)}")
+    
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Embed documents via HTTP service."""
+        embeddings = []
+        for text in texts:
+            embedding = self._get_embedding(text, mode="document")
+            embeddings.append(embedding)
+        return embeddings
+    
+    def embed_query(self, text: str) -> List[float]:
+        """Embed query via HTTP service."""
+        return self._get_embedding(text, mode="query")
 
 
 class GraphRAG:
@@ -74,9 +112,9 @@ class GraphRAG:
 
         # Create vector store
         try:
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            embeddings = HTTPEmbeddings()
             self.vector_store = FAISS.from_documents(documents, embeddings)
-            print("Vector store created successfully")
+            print("Vector store created successfully with HTTP embedding service")
         except Exception as e:
             print(f"Error creating vector store: {str(e)}")
             return
@@ -149,10 +187,10 @@ class GraphRAG:
 
     def load_graph(self):
         try:
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            embeddings = HTTPEmbeddings()
             self.vector_store = FAISS.load_local(self.vector_store_path, embeddings, allow_dangerous_deserialization=True)
             self.graph = nx.read_gml(self.graph_path)
-            print("Vector store and graph loaded successfully")
+            print("Vector store and graph loaded successfully with HTTP embedding service")
         except Exception as e:
             print(f"Error loading vector store or graph: {str(e)}")
             print("Rebuilding vector store due to incompatibility...")

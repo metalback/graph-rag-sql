@@ -24,8 +24,6 @@ requests==2.31.0
 
 # Vector store and embeddings for documents
 chromadb==0.5.5
-sentence-transformers==3.0.1
-transformers==4.43.4
 nltk==3.9.1
 pypdf==4.3.1
 python-docx==1.1.2
